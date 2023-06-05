@@ -1,55 +1,96 @@
-latent_init = [( convert(latent_type, rand(Categorical(2)) ), convert(latent_type, rand(Poisson(10) ) ) ) for iter in 1:n]
+################################################################################
+struct HSMM_UV_P <: ModelName end
+struct HSMM_UV <: ModelName end
+struct HSMM_UV3 <: ModelName end
+struct HSMM_UV_P5 <: ModelName end
 
 ################################################################################
 #UNIVARIATE CASE
-s_0 = [convert(latent_type, rand(Categorical(3))) for iter in 1:n]
-d_0 = [convert(latent_type, rand(Poisson(10))) for iter in 1:n]
+
+latent_init = [( convert(latent_type, rand(Categorical(2)) ), convert(latent_type, rand(Poisson(10) ) ) ) for iter in 1:n]
+latent_init5 = [( convert(latent_type, rand(Categorical(5)) ), convert(latent_type, rand(Poisson(10) ) ) ) for iter in 1:n]
+
+#s_0 = [convert(latent_type, rand(Categorical(3))) for iter in 1:n]
+#d_0 = [convert(latent_type, rand(Poisson(10))) for iter in 1:n]
+
 param_HSMM_UV_P = (;
-    μ = Param([-2., 2.], [truncated(Normal(-2., 100.), -10., 0.0), truncated(Normal(2., 100.), 0.0, 10.0) ]),
-    σ = Param([5., 2.], [truncated(Normal(5.0, 20.), 0.0, 10.0), truncated(Normal(2.5, 20.), 0.0, 10.0)]),
-    λ = Param([10., 50.], [truncated(Normal(10.0, 10^5), 0.0, 50.0), truncated(Normal(50.0, 10^5), 0.0, 100.0)]),
-    p = Param([[1], [1]], Fixed()),
-    latent = Param(latent_init, Fixed()),
+    μ = Param(
+        [truncated(Normal(-2., 100.), -10., 0.0), truncated(Normal(2., 100.), 0.0, 10.0) ],
+        [-2., 2.],
+    ),
+    σ = Param(
+        [truncated(Normal(5.0, 20.), 0.0, 10.0), truncated(Normal(2.5, 20.), 0.0, 10.0)],
+        [5., 2.],
+    ),
+    λ = Param(
+        [truncated(Normal(10.0, 10^5), 0.0, 50.0), truncated(Normal(50.0, 10^5), 0.0, 100.0)],
+        [10., 50.],
+    ),
+    p = Param(
+        Fixed(),
+        [[1], [1]],
+    ),
+    latent = Param(
+        Fixed(),
+        latent_init,
+    ),
     )
 param_HSMM_UV = (;
-    μ = Param([-2., 2.], [truncated(Normal(-2., 100,), -10., 0.0), truncated(Normal(2., 100.), 0.0, 10.0) ]),
-    σ = Param([4., 2.], [truncated(Normal(5., 20.), 0.0, 10.0), truncated(Normal(2.0, 20.), 0.0, 10.0)]),
-    r = Param([10., 15.], [truncated(Normal(10.0, 10^5), 0.0, 20.0), truncated(Normal(20.0, 10^5), 0.0, 100.0)]),
-    ϕ = Param([.3, .3], [Beta(1., 1.5), Beta(1., 1.5)]),
-    p = Param([[1], [1]], Fixed()),
-    latent = Param(latent_init, Fixed()),
+    μ = Param(
+        [truncated(Normal(-2., 100,), -10., 0.0), truncated(Normal(2., 100.), 0.0, 10.0) ],
+        [-2., 2.],
+    ),
+    σ = Param(
+        [truncated(Normal(5., 20.), 0.0, 10.0), truncated(Normal(2.0, 20.), 0.0, 10.0)],
+        [4., 2.],
+    ),
+    r = Param(
+        [truncated(Normal(10.0, 10^5), 0.0, 20.0), truncated(Normal(20.0, 10^5), 0.0, 100.0)],
+        [10., 15.],
+    ),
+    ϕ = Param(
+        [Beta(1., 1.5), Beta(1., 1.5)],
+        [.3, .3],
+    ),
+    p = Param(
+        Fixed(),
+        [[1], [1]],
+    ),
+    latent = Param(
+        Fixed(),
+        latent_init,
+    ),
 )
-struct HSMM_UV <: ModelName end
-struct HSMM_UV3 <: ModelName end
-hsmm_UV = ModelWrapper(HSMM_UV(), param_HSMM_UV, (;), FlattenDefault(Float64, FlattenContinuous()))
-struct HSMM_UV_P <: ModelName end
-hsmm_UV_P = ModelWrapper(HSMM_UV_P(), param_HSMM_UV_P) #, FlattenDefault(Float16, FlattenContinuous(), UnflattenStrict()))
-
-latent_init5 = [( convert(latent_type, rand(Categorical(5)) ), convert(latent_type, rand(Poisson(10) ) ) ) for iter in 1:n]
 param_HSMM_UV_P5 = (;
-    μ = Param([-50., -20., 0.0, 20., 50.],
-        [truncated(Normal(-30., 10^5), -100., -20.0), truncated(Normal(0., 10^5), -50., 50.), truncated(Normal(0., 10^5), -50., 50.), truncated(Normal(0., 10^5), -50., 50.), truncated(Normal(50., 10^5), 20.0, 100.0) ]),
-    σ = Param([5., 2., 2., 2., 2.],
-        [truncated(Normal(5., 10.), 0.0, 10.0), truncated(Normal(2.5, 10.), 0.0, 10.0), truncated(Normal(2.5, 10.), 0.0, 10.0), truncated(Normal(2.5, 10.), 0.0, 10.0), truncated(Normal(2.5, 10.), 0.0, 10.0)]),
-    λ = Param([5., 10., 15., 20., 25.],
-    [truncated(Normal(5.0, 10^5), 0.0, 10.0), truncated(Normal(10.0, 10^5), 5.0, 20.0),
-     truncated(Normal(15.0, 10^5), 0.0, 30.0),truncated(Normal(20.0, 10^5), 10.0, 50.0),
-     truncated(Normal(25.0, 10^5), 10.0, 100.0)]),
-    p = Param([[.2, .2, .2, .4], [.2, .2, .2, .4], [.2, .2, .2, .4], [.2, .2, .2, .4], [.2, .2, .2, .4]],
-        [Dirichlet(4,1/4), Dirichlet(4,1/4), Dirichlet(4,1/4), Dirichlet(4,1/4), Dirichlet(4,1/4)]),
-    latent = Param(latent_init5, Fixed()),
+    μ = Param(
+        [truncated(Normal(-30., 10^5), -100., -20.0), truncated(Normal(0., 10^5), -50., 50.), truncated(Normal(0., 10^5), -50., 50.), truncated(Normal(0., 10^5), -50., 50.), truncated(Normal(50., 10^5), 20.0, 100.0) ],
+        [-50., -20., 0.0, 20., 50.],
+    ),
+    σ = Param(
+        [truncated(Normal(5., 10.), 0.0, 10.0), truncated(Normal(2.5, 10.), 0.0, 10.0), truncated(Normal(2.5, 10.), 0.0, 10.0), truncated(Normal(2.5, 10.), 0.0, 10.0), truncated(Normal(2.5, 10.), 0.0, 10.0)],
+        [5., 2., 2., 2., 2.],
+    ),
+    λ = Param(
+        [truncated(Normal(5.0, 10^5), 0.0, 10.0), truncated(Normal(10.0, 10^5), 5.0, 20.0),
+            truncated(Normal(15.0, 10^5), 0.0, 30.0),truncated(Normal(20.0, 10^5), 10.0, 50.0),
+            truncated(Normal(25.0, 10^5), 10.0, 100.0)
+        ],
+        [5., 10., 15., 20., 25.],
+    ),
+    p = Param(
+        [Dirichlet(4,1/4), Dirichlet(4,1/4), Dirichlet(4,1/4), Dirichlet(4,1/4), Dirichlet(4,1/4)],
+        [[.2, .2, .2, .4], [.2, .2, .2, .4], [.2, .2, .2, .4], [.2, .2, .2, .4], [.2, .2, .2, .4]],
+    ),
+    latent = Param(
+        Fixed(),
+        latent_init5,
+    ),
 )
-struct HSMM_UV_P5 <: ModelName end
-hsmm_UV_P5 = ModelWrapper(HSMM_UV_P5(), param_HSMM_UV_P5)
-
-struct HSMM_MV <: ModelName end
 
 ################################################################################
 function get_dynamics(model::ModelWrapper{A}, θ) where {A<:Union{HSMM_UV, HSMM_UV3}}
     @unpack μ, σ, r, ϕ, p = θ
     dynamicsᵈ = [ NegativeBinomial(r[iter], ϕ[iter]) for iter in eachindex(μ) ]
-    #@unpack μ, σ, λ, p = θ
-    #dynamicsᵈ = [ Poisson(λ[iter]) for iter in eachindex(μ) ]
     dynamicsᵉ = [ Normal(μ[iter], σ[iter]) for iter in eachindex(μ) ]
     dynamicsˢ = [ Categorical( extend_state(p[iter], iter) ) for iter in eachindex(μ) ]
     return dynamicsᵉ, dynamicsˢ, dynamicsᵈ
@@ -61,18 +102,10 @@ function get_dynamics(model::ModelWrapper{M}, θ) where {M<:Union{HSMM_UV_P, HSM
     dynamicsˢ = [ Categorical( extend_state(p[iter], iter) ) for iter in eachindex(μ) ]
     return dynamicsᵉ, dynamicsˢ, dynamicsᵈ
 end
-function get_dynamics(model::ModelWrapper{<:HSMM_MV}, θ)
-    @unpack μ, σ, λ, p = θ
-    dynamicsᵉ = [ MvNormal(μ[iter], σ[iter]) for iter in eachindex(μ) ]
-    dynamicsˢ = [ Categorical( extend_state(p[iter], iter) ) for iter in eachindex(μ) ]
-    dynamicsᵈ = [ Poisson(λ[iter]) for iter in eachindex(μ) ]
-    return dynamicsᵉ, dynamicsˢ, dynamicsᵈ
-end
-#get_dynamics(hsmm_UV_P5, hsmm_UV_P5.val)
 
 ################################################################################
 # Define sample and likelihood
-function ModelWrappers.simulate(rng::Random.AbstractRNG, model::ModelWrapper{F}; Nsamples = 1000) where {F<:Union{HSMM_UV, HSMM_UV3, HSMM_UV_P, HSMM_UV_P5, HSMM_MV}}
+function ModelWrappers.simulate(rng::Random.AbstractRNG, model::ModelWrapper{F}; Nsamples = 1000) where {F<:Union{HSMM_UV, HSMM_UV3, HSMM_UV_P, HSMM_UV_P5}}
 
     dynamicsᵉ, dynamicsˢ, dynamicsᵈ = get_dynamics(model, model.val)
     latentⁿᵉʷ = initzeros( convert.(latent_type, (rand(dynamicsˢ[1]), rand(dynamicsᵈ[1]) ) ), Nsamples)
@@ -82,40 +115,28 @@ function ModelWrappers.simulate(rng::Random.AbstractRNG, model::ModelWrapper{F};
     durationₜ = rand(rng, dynamicsᵈ[stateₜ])
 
     fillvec!(latentⁿᵉʷ, convert.(latent_type, (stateₜ, durationₜ) ), 1 )
-    if isa(model.id, HSMM_MV)
-        fillrows!(observedⁿᵉʷ, rand(rng, dynamicsᵉ[stateₜ]), 1 )
-    else
-        fillvec!(observedⁿᵉʷ, rand(rng, dynamicsᵉ[stateₜ]), 1 )
-    end
+    fillvec!(observedⁿᵉʷ, rand(rng, dynamicsᵉ[stateₜ]), 1 )
 
     for iter in 2:size(observedⁿᵉʷ,1)
         if durationₜ > 0
             durationₜ -=  1
             fillvec!(latentⁿᵉʷ, convert.(latent_type, (stateₜ, durationₜ) ), iter )
-            if isa(model.id, HSMM_MV)
-                fillrows!(observedⁿᵉʷ, rand(rng, dynamicsᵉ[stateₜ]), iter )
-            else
-                fillvec!(observedⁿᵉʷ, rand(rng, dynamicsᵉ[stateₜ]), iter )
-            end
+            fillvec!(observedⁿᵉʷ, rand(rng, dynamicsᵉ[stateₜ]), iter )
         else
             stateₜ = rand(rng, dynamicsˢ[ stateₜ ] ) #stateₜ for t-1 overwritten
             durationₜ = rand(rng, dynamicsᵈ[stateₜ])
             fillvec!(latentⁿᵉʷ, convert.(latent_type, (stateₜ, durationₜ) ), iter )
-            if isa(model.id, HSMM_MV)
-                fillrows!(observedⁿᵉʷ, rand(rng, dynamicsᵉ[stateₜ]), iter )
-            else
-                fillvec!(observedⁿᵉʷ, rand(rng, dynamicsᵉ[stateₜ]), iter )
-            end
+            fillvec!(observedⁿᵉʷ, rand(rng, dynamicsᵉ[stateₜ]), iter )
         end
     end
     return observedⁿᵉʷ, latentⁿᵉʷ
 end
 
-function (objective::Objective{<:ModelWrapper{M}})(θ::NamedTuple) where {M<:Union{HSMM_UV, HSMM_UV3, HSMM_UV_P, HSMM_UV_P5, HSMM_MV}}
+function (objective::Objective{<:ModelWrapper{M}})(θ::NamedTuple) where {M<:Union{HSMM_UV, HSMM_UV3, HSMM_UV_P, HSMM_UV_P5}}
     @unpack model, data, tagged = objective
     @unpack latent = θ
 ## Prior
-    lp = log_prior(tagged.info.constraint, ModelWrappers.subset(θ, tagged.parameter) )
+    lp = log_prior(tagged.info.transform.constraint, ModelWrappers.subset(θ, tagged.parameter) )
 ##Likelihood
     dynamicsᵉ, dynamicsˢ, dynamicsᵈ = get_dynamics(model, θ)
     ll = 0.0
@@ -130,7 +151,7 @@ function (objective::Objective{<:ModelWrapper{M}})(θ::NamedTuple) where {M<:Uni
     return ll + lp
 end
 
-function ModelWrappers.predict(_rng::Random.AbstractRNG, objective::Objective{<:ModelWrapper{M}}) where {M<:Union{HSMM_UV, HSMM_UV3, HSMM_UV_P, HSMM_UV_P5, HSMM_MV}}
+function ModelWrappers.predict(_rng::Random.AbstractRNG, objective::Objective{<:ModelWrapper{M}}) where {M<:Union{HSMM_UV, HSMM_UV3, HSMM_UV_P, HSMM_UV_P5}}
     @unpack model, data = objective
     @unpack μ, σ, p, latent = model.val #s, d
     if latent[end][2] != 0
@@ -138,29 +159,12 @@ function ModelWrappers.predict(_rng::Random.AbstractRNG, objective::Objective{<:
     else
         s_new = rand(_rng, Categorical(extend_state(p[latent[end][1]], latent[end][1])))
     end
-    if isa(objective.model.id, HSMM_MV)
-        return rand(_rng, MvNormal(μ[s_new], σ[s_new]))
-    else
-        return rand(_rng, Normal(μ[s_new], σ[s_new]))
-    end
+    return rand(_rng, Normal(μ[s_new], σ[s_new]))
 end
-
-data_HSMM_UV, latent_HSMM_UV = simulate(_rng, hsmm_UV; Nsamples = n)
-data_HSMM_UV_P, latent_HSMM_UV_P = simulate(_rng, hsmm_UV_P; Nsamples = n)
-data_HSMM_UV_P5, latent_HSMM_UV_P5 = simulate(_rng, hsmm_UV_P5; Nsamples = n)
-
-_tagged = Tagged(hsmm_UV, :latent)
-fill!(hsmm_UV, _tagged, (; latent = latent_HSMM_UV))
-fill!(hsmm_UV_P, _tagged, (; latent = latent_HSMM_UV_P))
-fill!(hsmm_UV_P5, _tagged, (; latent = latent_HSMM_UV_P5))
-
-objectiveUV = Objective(hsmm_UV, data_HSMM_UV,  Tagged(hsmm_UV, (:μ, :σ, :r, :ϕ, :p)))
-objectiveUV_P = Objective(hsmm_UV_P, data_HSMM_UV_P,  Tagged(hsmm_UV_P, (:μ, :σ, :λ, :p)))
-objectiveUV_P5 = Objective(hsmm_UV_P5, data_HSMM_UV_P5,  Tagged(hsmm_UV_P5, (:μ, :σ, :λ, :p)))
 
 ################################################################################
 #Assign dynamics
-function ModelWrappers.dynamics(objective::Objective{<:ModelWrapper{M}}) where {M<:Union{HSMM_UV, HSMM_UV3, HSMM_UV_P, HSMM_UV_P5, HSMM_MV}}
+function ModelWrappers.dynamics(objective::Objective{<:ModelWrapper{M}}) where {M<:Union{HSMM_UV, HSMM_UV3, HSMM_UV_P, HSMM_UV_P5}}
     @unpack model, data = objective
     dynamicsᵉ, dynamicsˢ, dynamicsᵈ = get_dynamics(model, model.val)
 
@@ -177,8 +181,40 @@ function ModelWrappers.dynamics(objective::Objective{<:ModelWrapper{M}}) where {
 end
 
 ################################################################################
+hsmm_UV = ModelWrapper(HSMM_UV(), param_HSMM_UV, (;), FlattenDefault(Float64, FlattenContinuous()))
+hsmm_UV_P = ModelWrapper(HSMM_UV_P(), param_HSMM_UV_P)
+hsmm_UV_P5 = ModelWrapper(HSMM_UV_P5(), param_HSMM_UV_P5)
+
+tagged_hsmm_UV = Tagged(hsmm_UV, (:μ, :σ, :r, :ϕ, :p))
+tagged_hsmm_UV_P = Tagged(hsmm_UV_P, (:μ, :σ, :λ, :p))
+tagged_hsmm_UV_P5 = Tagged(hsmm_UV_P5, (:μ, :σ, :λ, :p))
+
+data_HSMM_UV, latent_HSMM_UV = simulate(_rng, hsmm_UV; Nsamples = n)
+data_HSMM_UV_P, latent_HSMM_UV_P = simulate(_rng, hsmm_UV_P; Nsamples = n)
+data_HSMM_UV_P5, latent_HSMM_UV_P5 = simulate(_rng, hsmm_UV_P5; Nsamples = n)
+
+_tagged = Tagged(hsmm_UV, :latent)
+fill!(hsmm_UV, _tagged, (; latent = latent_HSMM_UV))
+fill!(hsmm_UV_P, _tagged, (; latent = latent_HSMM_UV_P))
+fill!(hsmm_UV_P5, _tagged, (; latent = latent_HSMM_UV_P5))
+
+objectiveUV = Objective(hsmm_UV, data_HSMM_UV, tagged_hsmm_UV)
+objectiveUV_P = Objective(hsmm_UV_P, data_HSMM_UV_P, tagged_hsmm_UV_P)
+objectiveUV_P5 = Objective(hsmm_UV_P5, data_HSMM_UV_P5, tagged_hsmm_UV_P5)
+
+objectiveUV(objectiveUV.model.val)
+objectiveUV_P(objectiveUV_P.model.val)
+objectiveUV_P5(objectiveUV_P5.model.val)
+
+dynamics(objectiveUV)
+dynamics(objectiveUV_P)
+dynamics(objectiveUV_P5)
+
+################################################################################
+import BaytesInference: filter_forward
+
 "Forward Filter HSMM - target filtering distributions P( sₜ | e₁:ₜ ) instead of forward probabilities P( sₜ, e₁:ₜ ) for numerical stability"
-function filter_forward(objective::Objective{<:ModelWrapper{M}}; dmax = size(objective.data, 1)) where {M<:Union{HSMM_UV, HSMM_UV3, HSMM_UV_P, HSMM_UV_P5, HSMM_MV}}
+function filter_forward(objective::Objective{<:ModelWrapper{M}}; dmax = size(objective.data, 1)) where {M<:Union{HSMM_UV, HSMM_UV3, HSMM_UV_P, HSMM_UV_P5}}
     @unpack model, data = objective
 ## Map Parameter to observation and state probabilities
     @unpack p = model.val

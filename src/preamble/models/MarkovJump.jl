@@ -1,17 +1,35 @@
-latent_init = rand(_rng, Bernoulli(0.1), n)
+################################################################################
+struct MarkovJump <: ModelName end
 
 ################################################################################
 # Markov Jump Model
+latent_init = rand(_rng, Bernoulli(0.1), n)
 param_MarkovJump = (;
-    μ = Param(0.1, truncated(Normal(0., 10^5), -10., 10.0)),
-    σ = Param(0.5, truncated(Normal(.5, 10^5), 0., 10.0)),
-    μⱼ = Param(-1.0, truncated(Normal(0., 10^5), -10., 10.0)),
-    σⱼ = Param(1.0, truncated(Normal(.5, 10^5), 0., 10.0)),
-    λ = Param(0.1, Beta(1., 4.)),
-    latent = Param(rand( Bernoulli(0.1), n), Fixed()),
-    )
-struct MarkovJump <: ModelName end
-mj = ModelWrapper(MarkovJump(), param_MarkovJump)
+    μ = Param(
+        truncated(Normal(0., 10^5), -10., 10.0),
+        0.1,
+    ),
+    σ = Param(
+        truncated(Normal(.5, 10^5), 0., 10.0),
+        0.5,
+    ),
+    μⱼ = Param(
+        truncated(Normal(0., 10^5), -10., 10.0),
+        -1.0,
+    ),
+    σⱼ = Param(
+        truncated(Normal(.5, 10^5), 0., 10.0),
+        1.0,
+    ),
+    λ = Param(
+        Beta(1., 4.),
+        0.1,
+    ),
+    latent = Param(
+        Fixed(),
+        rand( Bernoulli(0.1), n),
+    ),
+)
 
 ################################################################################
 # Define sample and likelihood
@@ -47,7 +65,7 @@ function (objective::Objective{<:ModelWrapper{<:MarkovJump}})(θ::NamedTuple)
     @unpack model, data, tagged = objective
     @unpack μ, σ, μⱼ, σⱼ, λ, latent = θ
 ## Prior
-    lp = log_prior(tagged.info.constraint, ModelWrappers.subset(θ, tagged.parameter) )
+    lp = log_prior(tagged.info.transform.constraint, ModelWrappers.subset(θ, tagged.parameter) )
 ##Likelihood
     ll = 0.0
     ## Create distributions
@@ -64,14 +82,6 @@ function ModelWrappers.predict(_rng::Random.AbstractRNG, objective::Objective{<:
     return rand(_rng, Normal(μ + latent_new*μⱼ, σ + latent_new*σⱼ) )
 end
 
-data_mj, latent_mj = simulate(_rng, mj; Nsamples = n)
-_tagged = Tagged(mj, :latent)
-
-fill!(mj, _tagged, (; latent = latent_mj))
-objectiveUV = Objective(mj, data_mj,  Tagged(mj, (:μ, :σ, :μⱼ, :σⱼ, :λ)))
-objectiveUV(mj.val)
-predict(_rng, objectiveUV)
-
 ################################################################################
 #Assign dynamics
 
@@ -84,6 +94,20 @@ function BaytesFilters.dynamics(objective::Objective{<:ModelWrapper{<:MarkovJump
 
     return Markov(initial, transition, evidence)
 end
+
+################################################################################
+mj = ModelWrapper(MarkovJump(), param_MarkovJump)
+
+tagged_mj = Tagged(mj, (:μ, :σ, :μⱼ, :σⱼ, :λ) )
+
+data_mj, latent_mj = simulate(_rng, mj; Nsamples = n)
+_tagged = Tagged(mj, :latent)
+
+fill!(mj, _tagged, (; latent = latent_mj))
+objectiveUV = Objective(mj, data_mj,  Tagged(mj, (:μ, :σ, :μⱼ, :σⱼ, :λ)))
+objectiveUV(mj.val)
+predict(_rng, objectiveUV)
+
 BaytesFilters.dynamics(objectiveUV)
 
 ################################################################################
@@ -94,6 +118,7 @@ BaytesFilters.dynamics(objectiveUV)
         = ∑ₜ log ∑ₛₜₐₜₑ P(eₜ, sₜ = state | θ)
         = ∑ₜ log ∑ₛₜₐₜₑ P(eₜ | sₜ = state,  θ) P(sₜ = state | θ)
 =#
+import BaytesInference: filter_forward
 function filter_forward(objective::Objective{<:ModelWrapper{<:MarkovJump}})
     @unpack model, data = objective
     @unpack μ, σ, μⱼ, σⱼ, λ = model.val

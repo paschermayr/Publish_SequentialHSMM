@@ -1,5 +1,8 @@
 ################################################################################
 # ARHMM and ARHSMM helper for getting Mu
+#Need to dispatch on both the data size if Scalar/Vector as well as the weights if Scalar/Vector
+#Multivariate observation case in which case data is always an Array{T,2} -  needs to hold for Arra{T,2} and any AR(k)
+#Univariate observation case in which data is a scalar for AR(1) or a Vector for AR(>1)
 
 #UNIVARIATE CASE - Data either scalar or Vector, weights either scalar or vector - only 2 cases
 #1 Scalar to Scalar
@@ -23,6 +26,8 @@ function get_ARweights(distr::MultivariateDistribution, dataₜ₋ₖ::AbstractV
 #!NOTE: Case where MV Data has Memory 1 and equal memory
     return dataₜ₋ₖ * weights
 end
+
+#MV Case - higher order memory not implemented ~ would need to find suitable prior?
 
 ################################################################################
 "Return data subsequence based on memory"

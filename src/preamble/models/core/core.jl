@@ -1,10 +1,9 @@
 
 ################################################################################
 #Include
-using BaytesCore
-include( joinpath(@__DIR__, "helper.jl") )
-include( joinpath(@__DIR__, "hsmm.jl") )
-include( joinpath(@__DIR__, "autoregressive.jl") )
+include("helper.jl")
+include("hsmm.jl")
+include("autoregressive.jl")
 
 ################################################################################
 #export

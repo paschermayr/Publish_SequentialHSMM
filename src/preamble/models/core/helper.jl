@@ -46,7 +46,7 @@ end
 ############################
 "Compute Stationary distribution for given transition matrix"
 function get_stationary!(Transition::AbstractMatrix{T}) where T<:Real
-    # NOTE: Taken from: https://github.com/QuantEcon/QuantEcon.jl/blob/f454d4dfbaf52f550ddd52eff52471e4b8fddb9d/src/markov/mc_tools.jl
+    # From: https://github.com/QuantEcon/QuantEcon.jl/blob/f454d4dfbaf52f550ddd52eff52471e4b8fddb9d/src/markov/mc_tools.jl
     # Grassmann-Taksar-Heyman (GTH) algorithm (Grassmann, Taksar, and Heyman 1985)
     n = size(Transition, 1)
     x = zeros(T, n)

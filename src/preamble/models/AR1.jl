@@ -1,11 +1,21 @@
-param_ar1 = (
-    μ = Param(0.5, truncated(Normal(3.0,10^5.), 0., 10.)),
-    σ = Param(.2, truncated(Normal(0.2,10^5.), 0.01, 5.)),
-    w = Param(.8, truncated(Normal(0.0,10^5.), .0, 1.0)),
-)
-
+################################################################################
 struct AR1 <: ModelName end
-ar1 = ModelWrapper(AR1(), param_ar1)
+
+################################################################################
+param_ar1 = (
+    μ = Param(
+        truncated(Normal(3.0,10^5.), 0., 10.),
+        0.5,
+    ),
+    σ = Param(
+        truncated(Normal(0.2,10^5.), 0.01, 5.),
+        .2,
+    ),
+    w = Param(
+        truncated(Normal(0.0,10^5.), .0, 1.0),
+        .8,
+    ),
+)
 
 function ModelWrappers.simulate(rng::Random.AbstractRNG, model::ModelWrapper{F}; Nsamples = 1000)  where {F<:AR1}
     @unpack μ, σ, w = model.val
@@ -24,7 +34,7 @@ end
 function (objective::Objective{<:ModelWrapper{M}})(θ::NamedTuple) where {M<:AR1}
     @unpack model, data, tagged = objective
 ## Prior
-    lp = log_prior(tagged.info.constraint, BaytesCore.subset(θ, tagged.parameter))
+    lp = log_prior(tagged.info.transform.constraint, BaytesCore.subset(θ, tagged.parameter))
 ## Likelihood
     @unpack μ, σ, w = θ
     ll = 0.0
@@ -35,9 +45,6 @@ function (objective::Objective{<:ModelWrapper{M}})(θ::NamedTuple) where {M<:AR1
     end
     return ll + lp
 end
-dat = simulate(_rng, ar1)
-_obj = Objective(ar1, dat,)
-_obj(_obj.model.val)
 
 function ModelWrappers.predict(_rng::Random.AbstractRNG, objective::Objective{<:ModelWrapper{M}}) where {M<:AR1}
     @unpack model, data, tagged = objective
@@ -45,7 +52,6 @@ function ModelWrappers.predict(_rng::Random.AbstractRNG, objective::Objective{<:
     μᵗ = μ + w*data[end]
     return rand(_rng, Normal(μᵗ, σ) )
 end
-predict(_rng, _obj)
 
 function BaytesSMC.SMCweight(_rng::Random.AbstractRNG, objective::Objective{<:ModelWrapper{M}}, algorithm, cumweightsₜ₋₁) where {M<:AR1}
     @unpack model, data, tagged, temperature = objective
@@ -60,4 +66,16 @@ function BaytesSMC.SMCweight(_rng::Random.AbstractRNG, objective::Objective{<:Mo
     cumweightsₜ = temperature*ll
     return cumweightsₜ, cumweightsₜ - cumweightsₜ₋₁
 end
+
+################################################################################
+ar1 = ModelWrapper(AR1(), param_ar1)
+
+tagged_ar1 = Tagged(ar1, (:μ, :σ, :w) )
+
+dat = simulate(_rng, ar1)
+_obj = Objective(ar1, dat,)
+_obj(_obj.model.val)
+
+predict(_rng, _obj)
+
 BaytesSMC.SMCweight(_rng, _obj, 1., 2.)

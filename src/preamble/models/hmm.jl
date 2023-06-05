@@ -1,15 +1,28 @@
-latent_init = convert.(latent_type, rand( Categorical(3), n) )
+################################################################################
+struct HMM_UV <: ModelName end
+
 ################################################################################
 #UNIVARIATE CASE
+latent_init = convert.(latent_type, rand( Categorical(3), n) )
+
 param_HMM_UV = (;
-    μ = Param([-.1, .1], [truncated(Normal(-.1, 10^5), -10., 0.0), truncated(Normal(.1, 10^5), 0.0, 10.0) ]),
-    σ = Param([1.3, 0.5], [truncated(Normal(1.5, 10^5), 0.0, 10.0), truncated(Normal(.5, 10^5), 0.0, 10.0)]),
-    p = Param([[.7, .3], [.05, .95]], [Dirichlet(2,2) for i in 1:2]),
-	latent = Param(rand( Categorical(2), n), [Categorical(2) for _ in 1:n]),
+    μ = Param(
+        [truncated(Normal(-.1, 10^5), -10., 0.0), truncated(Normal(.1, 10^5), 0.0, 10.0) ],
+        [-.1, .1],
+    ),
+    σ = Param(
+        [truncated(Normal(1.5, 10^5), 0.0, 10.0), truncated(Normal(.5, 10^5), 0.0, 10.0)],
+        [1.3, 0.5],
+    ),
+    p = Param(
+        [Dirichlet(2,2) for i in 1:2],
+        [[.7, .3], [.05, .95]],
+    ),
+	latent = Param(
+        [Categorical(2) for _ in 1:n],
+        rand( Categorical(2), n),
+    ),
 )
-struct HMM_UV <: ModelName end
-struct HMM_MV <: ModelName end
-hmm_UV = ModelWrapper(HMM_UV(), param_HMM_UV)
 
 ################################################################################
 function get_dynamics(model::ModelWrapper{<:HMM_UV}, θ)
@@ -18,46 +31,31 @@ function get_dynamics(model::ModelWrapper{<:HMM_UV}, θ)
     dynamicsˢ = [ Categorical( p[iter] ) for iter in eachindex(μ) ]
     return dynamicsᵉ, dynamicsˢ
 end
-function get_dynamics(model::ModelWrapper{<:HMM_MV}, θ)
-    @unpack μ, σ, p = θ
-    dynamicsᵉ = [ MvNormal(μ[iter], σ[iter]) for iter in eachindex(μ) ]
-    dynamicsˢ = [ Categorical( p[iter] ) for iter in eachindex(μ) ]
-    return dynamicsᵉ, dynamicsˢ
-end
 
 ################################################################################
 # Define sample and likelihood
-function ModelWrappers.simulate(rng::Random.AbstractRNG, model::ModelWrapper{F}; Nsamples = 1000) where {F<:Union{HMM_UV, HMM_MV}}
+function ModelWrappers.simulate(rng::Random.AbstractRNG, model::ModelWrapper{F}; Nsamples = 1000) where {F<:Union{HMM_UV}}
     dynamicsᵉ, dynamicsˢ = get_dynamics(model, model.val)
     latentⁿᵉʷ = initzeros( convert(latent_type, rand(dynamicsˢ[1]) ), Nsamples)
     observedⁿᵉʷ = initzeros( rand(dynamicsᵉ[1]) , Nsamples)
 
     stateₜ = convert(latent_type, rand( dynamicsˢ[ rand(1:length(dynamicsˢ) ) ] ) )
     fillvec!(latentⁿᵉʷ, stateₜ, 1 )
-
-    if isa(model.id, HMM_MV)
-        fillrows!(observedⁿᵉʷ, rand(dynamicsᵉ[stateₜ]), 1 )
-    else
-        fillvec!(observedⁿᵉʷ, rand(dynamicsᵉ[stateₜ]), 1 )
-    end
+    fillvec!(observedⁿᵉʷ, rand(dynamicsᵉ[stateₜ]), 1 )
 
     for iter in 2:size(observedⁿᵉʷ,1)
             stateₜ = convert(latent_type, rand( dynamicsˢ[ stateₜ ] ) ) #stateₜ for t-1 overwritten
             fillvec!(latentⁿᵉʷ, stateₜ, iter )
-            if isa(model.id, HMM_MV)
-                fillrows!(observedⁿᵉʷ, rand(dynamicsᵉ[stateₜ]), iter )
-            else
-                fillvec!(observedⁿᵉʷ, rand(dynamicsᵉ[stateₜ]), iter )
-            end
+            fillvec!(observedⁿᵉʷ, rand(dynamicsᵉ[stateₜ]), iter )
     end
     return observedⁿᵉʷ, latentⁿᵉʷ
 end
 
-function (objective::Objective{<:ModelWrapper{M}})(θ::NamedTuple) where {M<:Union{HMM_UV, HMM_MV}}
+function (objective::Objective{<:ModelWrapper{M}})(θ::NamedTuple) where {M<:Union{HMM_UV}}
     @unpack model, data, tagged = objective
     @unpack latent = θ
 ## Prior
-    lp = log_prior(tagged.info.constraint, ModelWrappers.subset(θ, tagged.parameter) )
+    lp = log_prior(tagged.info.transform.constraint, ModelWrappers.subset(θ, tagged.parameter) )
 ##Likelihood
     dynamicsᵉ, dynamicsˢ = get_dynamics(model, θ)
     ll = 0.0
@@ -69,30 +67,17 @@ function (objective::Objective{<:ModelWrapper{M}})(θ::NamedTuple) where {M<:Uni
     return ll + lp
 end
 
-function ModelWrappers.predict(_rng::Random.AbstractRNG, objective::Objective{<:ModelWrapper{M}}) where {M<:Union{HMM_UV, HMM_MV}}
+function ModelWrappers.predict(_rng::Random.AbstractRNG, objective::Objective{<:ModelWrapper{M}}) where {M<:Union{HMM_UV}}
     @unpack model, data = objective
-    @unpack μ, σ, p, latent = model.val #s, d
+    @unpack μ, σ, p, latent = model.val
     latent_new = rand(_rng, Categorical(p[latent[end]]))
-    if isa(objective.model.id, HMM_MV)
-        return rand(_rng, MvNormal(μ[latent_new], σ[latent_new]))
-    else
-        return rand(_rng, Normal(μ[latent_new], σ[latent_new]))
-    end
+    return rand(_rng, Normal(μ[latent_new], σ[latent_new]))
 end
-
-data_HMM_UV, latent_HMM_UV = simulate(_rng, hmm_UV; Nsamples = n)
-
-_tagged = Tagged(hmm_UV, :latent)
-fill!(hmm_UV, _tagged, (; latent = latent_HMM_UV))
-
-objectiveUV = Objective(hmm_UV, data_HMM_UV,  Tagged(hmm_UV, (:μ, :σ, :p)))
-objectiveUV(hmm_UV.val)
-predict(_rng, objectiveUV)
 
 ################################################################################
 #Assign dynamics
 #Univariate
-function BaytesFilters.dynamics(objective::Objective{<:ModelWrapper{M}}) where {M<:Union{HMM_UV, HMM_MV}}
+function BaytesFilters.dynamics(objective::Objective{<:ModelWrapper{M}}) where {M<:Union{HMM_UV}}
     @unpack model, data = objective
     dynamicsᵉ, dynamicsˢ = get_dynamics(model, model.val)
 
@@ -102,9 +87,26 @@ function BaytesFilters.dynamics(objective::Objective{<:ModelWrapper{M}}) where {
 
     return Markov(initialˢ, transition, evidence)
 end
+
 ################################################################################
+hmm_UV = ModelWrapper(HMM_UV(), param_HMM_UV)
+
+tagged_hmm_UV = Tagged(hmm_UV, (:μ, :σ, :p) )
+
+data_HMM_UV, latent_HMM_UV = simulate(_rng, hmm_UV; Nsamples = n)
+_tagged = Tagged(hmm_UV, :latent)
+fill!(hmm_UV, _tagged, (; latent = latent_HMM_UV))
+
+objectiveUV = Objective(hmm_UV, data_HMM_UV,  Tagged(hmm_UV, (:μ, :σ, :p)))
+objectiveUV(hmm_UV.val)
+predict(_rng, objectiveUV)
+dynamics(objectiveUV)
+
+################################################################################
+import BaytesInference: filter_forward
+
 "Forward Filter HMM"
-function filter_forward(objective::Objective{<:ModelWrapper{M}}) where {M<:Union{HMM_UV, HMM_MV}}
+function filter_forward(objective::Objective{<:ModelWrapper{M}}) where {M<:Union{HMM_UV}}
     @unpack model, data = objective
 ## Map Parameter to observation and state probabilities
     @unpack p = model.val
